@@ -10,9 +10,6 @@ library(openxlsx)
 
 options(torch.environment_viewer = FALSE)
 
-# =========================================================
-# DATA & PARAMETERS
-# =========================================================
 data <- "C:/Users/belen/OneDrive/Escritorio/TFM ISA/DATA_eCOLI.xlsx"
 df <- read_excel(data)
 df <- df[, sapply(df, is.numeric)]
@@ -20,13 +17,11 @@ df <- df[, sapply(df, is.numeric)]
 latent_dim <- 8
 capa_int <- 19
 batch_size <- 256
-epochs <- 250
+epochs <- 400
 learning_rate <- 1e-3
-max_degree <- 1
+max_degree <- 2
 
-# =========================================================
-# PREPROCESSING & TENSORS
-# =========================================================
+# scaling data 
 X <- scale(as.matrix(df))
 
 col_min <- apply(X, 2, min)
@@ -52,9 +47,8 @@ val_ds   <- tensor_dataset(X_val_tensor, X_val_tensor)
 train_dl <- dataloader(train_ds, batch_size = batch_size, shuffle = TRUE, num_workers = 0)
 val_dl   <- dataloader(val_ds,   batch_size = batch_size, shuffle = FALSE, num_workers = 0)
 
-# =========================================================
 # MODEL SETUP WITH CONSTRAINTS
-# =========================================================
+
 autoencoder_model <- luz_model_sequential(
   nn_linear(input_dim, capa_int),  
   nn_tanh(),                        
@@ -68,27 +62,25 @@ autoencoder_model <- luz_model_sequential(
 autoencoder_model <- luz::setup(module = autoencoder_model, loss = nn_mse_loss(), optimizer = optim_adam)
 autoencoder_constrained <- add_constraints(autoencoder_model, type = "l1_norm")
 
-# =========================================================
 # TRAINING
-# =========================================================
+
 fitted_autoencoder <- fit(autoencoder_constrained, data = train_dl, valid_data = val_dl, epochs = epochs)
 
-# =========================================================
 # NN2POLY REPRESENTATION EXTRACTION
-# =========================================================
+
 cat("\n--- Extracting Polynomial Representation via nn2poly ---\n")
 
-# 1. Extract the raw torch sequential model from the luz training wrapper
+# Extract the raw torch sequential model from the luz training wrapper
 torch_autoencoder <- fitted_autoencoder$model
 
-# 2. Put the model in evaluation mode (freezes weights/constraints)
+# Put the model in evaluation mode (freezes weights/constraints)
 torch_autoencoder$eval()
 
-# 3. Compute the final Taylor polynomial representation
+# Compute the final Taylor polynomial representation
 # Note: 'max_degree' is used in the stable CRAN version of nn2poly to denote 'max_order'
 final_poly <- nn2poly(
   object = torch_autoencoder,
-  max_order = max_degree,       # Changes the max polynomial order to 3
+  max_degree = max_degree,       # Changes the max polynomial order to 3
   keep_layers = FALSE   # Only returns the final output layer polynomials
 )
 
@@ -101,15 +93,7 @@ ae_preds   <- as.matrix(with_no_grad({ torch_autoencoder(X_val_tensor) }))
 poly_preds <- predict(final_poly, X_val)
 
 
-# # Plot 2: Top 5 most important coefficients
-# p_final_poly_5 <- plot(final_poly, n = 5)
-# p_final_poly_5 <- plot(
-#   final_poly,
-#   n = 5,
-#   signed = FALSE
-# )
-
-# Plot 3: Comparison between Autoencoder and Polynomial approximation
+# Plot: Comparison between Autoencoder and Polynomial approximation
 
 p_diagonal <- nn2poly:::plot_diagonal(
   x_axis = as.vector(ae_preds),
@@ -125,89 +109,76 @@ p_diagonal <- nn2poly:::plot_diagonal(
     axis.text = element_text(size = 12)                               # Números de los 
   )
 
-# Luego lo guardas igual que antes
 ggsave(
-  filename = "C:/Users/belen/OneDrive/Escritorio/TFM ISA/fidelity_plot_deg1_ep250.png",
+  filename = "C:/Users/belen/OneDrive/Escritorio/TFM ISA/fidelity_plot_deg2_ep400.png",
   plot = p_diagonal,
   width = 8,
   height = 6,
   dpi = 300
 )
 
-# 2. Save the top 5 most important coefficients plot
-# ggsave(
-#   filename = "2top5_coefficients.png", 
-#   plot     = p_final_poly_5, 
-#   width    = 8, 
-#   height   = 6, 
-#   dpi      = 300
-# )
 
-# mse_poly <- mean((X_val - poly_preds)^2)
+mse_poly <- mean((X_val - poly_preds)^2)
+cat("Results for max_order=", max_degree, "\n")
 
-# cat("Results for max_order=", max_degree, "\n")
+cat("Polynomial MSE:", mse_poly, "\n")
 
-# cat("Polynomial MSE:", mse_poly, "\n")
-
-# mse_fidelity <- mean((ae_preds - poly_preds)^2)
-
-# cat("Fidelity MSE:", mse_fidelity, "\n")
+mse_fidelity <- mean((ae_preds - poly_preds)^2)
+cat("Fidelity MSE:", mse_fidelity, "\n")
 
 # str(final_poly, max.level = 2)
 # dim(final_poly$values)
 # length(final_poly$labels)
 
 
-# =========================================================
 # EXPORT TOP 100 MOST IMPORTANT POLYNOMIAL TERMS
-# =========================================================
 
-# term_name <- function(idx){
+term_name <- function(idx){
 
-#   if(length(idx) == 1 && idx == 0)
-#     return("1")
+  if(length(idx) == 1 && idx == 0)
+    return("1")
 
-#   tab <- table(idx)
+  tab <- table(idx)
 
-#   paste(
-#     sapply(names(tab), function(v){
+  paste(
+    sapply(names(tab), function(v){
 
-#       p <- tab[[v]]
+      p <- tab[[v]]
 
-#       if(p == 1)
-#         paste0("x", v)
-#       else
-#         paste0("x", v, "^", p)
+      if(p == 1)
+        paste0("x", v)
+      else
+        paste0("x", v, "^", p)
 
-#     }),
-#     collapse = " "
-#   )
-# }
+    }),
+    collapse = " "
+  )
+}
 
-# poly_df <- data.frame(
-#   Term = sapply(final_poly$labels, term_name),
-#   final_poly$values,
-#   check.names = FALSE
-# )
+poly_df <- data.frame(
+  Term = sapply(final_poly$labels, term_name),
+  final_poly$values,
+  check.names = FALSE
+)
 
-# colnames(poly_df)[-1] <- paste0(
-#   "Output_",
-#   seq_len(ncol(final_poly$values))
-# )
+colnames(poly_df)[-1] <- paste0(
+  "Output_",
+  seq_len(ncol(final_poly$values))
+)
 
-# # Importance = L2 norm across all outputs
-# poly_df$Importance <- sqrt(rowSums(final_poly$values^2))
+# Importance = L2 norm across all outputs
+poly_df$Importance <- sqrt(rowSums(final_poly$values^2))
 
-# # Keep only the 100 most important terms
-# poly_df <- poly_df[
-#   order(poly_df$Importance, decreasing = TRUE),
-# ]
+# Keep only the 100 most important terms
+poly_df <- poly_df[
+  order(poly_df$Importance, decreasing = TRUE),
+]
 
-# poly_df <- head(poly_df, 100)
+poly_df <- head(poly_df, 100)
 
-# # Export to Excel
-# openxlsx::write.xlsx(
-#   poly_df,
-#   file = "C:/Users/belen/OneDrive/Escritorio/TFM ISA/poly_deg3.xlsx",
-#   rowNames = FALSE
-# )
+# Export to Excel
+openxlsx::write.xlsx(
+  poly_df,
+  file = "C:/Users/belen/OneDrive/Escritorio/TFM ISA/poly_deg2_ep400.xlsx",
+  rowNames = FALSE
+)
