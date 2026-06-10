@@ -19,7 +19,7 @@ capa_int <- 19
 batch_size <- 256
 epochs <- 400
 learning_rate <- 1e-3
-max_degree <- 2
+max_degree <- 3
 
 # scaling data 
 X <- scale(as.matrix(df))
@@ -95,36 +95,36 @@ poly_preds <- predict(final_poly, X_val)
 
 # Plot: Comparison between Autoencoder and Polynomial approximation
 
-p_diagonal <- nn2poly:::plot_diagonal(
-  x_axis = as.vector(ae_preds),
-  y_axis = as.vector(poly_preds),
-  xlab   = "Autoencoder Predictions",
-  ylab   = "Polynomial Predictions",
-  title  = "Fidelity Check: Autoencoder vs. Polynomial Model"
-) +
-  theme(
-    plot.title = element_text(size = 20, face = "bold", hjust = 0.5), # Título principal 
-    axis.title.x = element_text(size = 16),                           # Título del eje X
-    axis.title.y = element_text(size = 16),                           # Título del eje Y
-    axis.text = element_text(size = 12)                               # Números de los 
-  )
+# p_diagonal <- nn2poly:::plot_diagonal(
+#   x_axis = as.vector(ae_preds),
+#   y_axis = as.vector(poly_preds),
+#   xlab   = "Autoencoder Predictions",
+#   ylab   = "Polynomial Predictions",
+#   title  = "Fidelity Check: Autoencoder vs. Polynomial Model"
+# ) +
+#   theme(
+#     plot.title = element_text(size = 20, face = "bold", hjust = 0.5), # Título principal 
+#     axis.title.x = element_text(size = 16),                           # Título del eje X
+#     axis.title.y = element_text(size = 16),                           # Título del eje Y
+#     axis.text = element_text(size = 12)                               # Números de los 
+#   )
 
-ggsave(
-  filename = "C:/Users/belen/OneDrive/Escritorio/TFM ISA/fidelity_plot_deg2_ep400.png",
-  plot = p_diagonal,
-  width = 8,
-  height = 6,
-  dpi = 300
-)
+# ggsave(
+#   filename = "C:/Users/belen/OneDrive/Escritorio/TFM ISA/fidelity_plot_deg2_ep400.png",
+#   plot = p_diagonal,
+#   width = 8,
+#   height = 6,
+#   dpi = 300
+# )
 
 
-mse_poly <- mean((X_val - poly_preds)^2)
-cat("Results for max_order=", max_degree, "\n")
+# mse_poly <- mean((X_val - poly_preds)^2)
+# cat("Results for max_order=", max_degree, "\n")
 
-cat("Polynomial MSE:", mse_poly, "\n")
+# cat("Polynomial MSE:", mse_poly, "\n")
 
-mse_fidelity <- mean((ae_preds - poly_preds)^2)
-cat("Fidelity MSE:", mse_fidelity, "\n")
+# mse_fidelity <- mean((ae_preds - poly_preds)^2)
+# cat("Fidelity MSE:", mse_fidelity, "\n")
 
 # str(final_poly, max.level = 2)
 # dim(final_poly$values)
@@ -179,6 +179,6 @@ poly_df <- head(poly_df, 100)
 # Export to Excel
 openxlsx::write.xlsx(
   poly_df,
-  file = "C:/Users/belen/OneDrive/Escritorio/TFM ISA/poly_deg2_ep400.xlsx",
+  file = "C:/Users/belen/OneDrive/Escritorio/TFM ISA/poly_deg3_ep400.xlsx",
   rowNames = FALSE
 )
