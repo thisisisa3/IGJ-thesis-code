@@ -16,7 +16,7 @@ df <- df[, sapply(df, is.numeric)]
 latent_dim <- 8
 capa_int <- 19
 batch_size <- 256
-epochs <- 400
+epochs <- 700
 learning_rate <- 1e-3
 
 # =========================================================
@@ -66,133 +66,99 @@ autoencoder_constrained <- add_constraints(autoencoder_model, type = "l1_norm")
 # =========================================================
 # TRAINING
 # =========================================================
-fitted_autoencoder <- fit(autoencoder_constrained, data = train_dl, valid_data = val_dl, epochs = epochs)
+fitted_autoencoder <- fit(
+  autoencoder_constrained,
+  data = train_dl,
+  valid_data = val_dl,
+  epochs = epochs
+)
 
-
-# Guardamos el modelo entrenado temporalmente por si decides usarlo
+# Save model
 luz_save(fitted_autoencoder, "modelo_temporal.pt")
 
 # =========================================================
-# CLEAN + TRUE SQUARE PLOT
+# TRAINING HISTORY PLOT
 # =========================================================
 
 library(ggplot2)
+setwd("C:/Users/belen/OneDrive/Escritorio/TFM ISA")
+
+metrics <- fitted_autoencoder$records$metrics
+
+train_loss <- sapply(metrics$train, function(x) x$loss)
+valid_loss <- sapply(metrics$valid, function(x) x$loss)
+
+loss_df <- data.frame(
+  Epoch = seq_along(train_loss),
+  Train_MSE = train_loss,
+  Validation_MSE = valid_loss
+)
+
+print(loss_df)
 
 p <- ggplot(loss_df, aes(x = Epoch)) +
 
-  # Curves
-  geom_line(aes(y = Train_MSE, color = "Train MSE"),
-            linewidth = 1.6) +
-  geom_line(aes(y = Validation_MSE, color = "Validation MSE"),
-            linewidth = 1.6) +
-
-  # TRUE square scaling (same x and y physical scale)
-  coord_fixed(
-    ratio = max(loss_df$Epoch) / 0.30,
-    ylim = c(0, 0.30)
+  geom_line(
+    aes(y = Train_MSE, color = "Training"),
+    linewidth = 1.4
   ) +
 
+  geom_line(
+    aes(y = Validation_MSE, color = "Validation"),
+    linewidth = 1.4
+  ) +
+
+  coord_cartesian(
+    ylim = c(0, 0.3)
+  )+
+
   labs(
-    title = "Autoencoder Training History",
+    title = "Training and Validation MSE",
     x = "Epoch",
-    y = "MSE Loss",
+    y = "MSE",
     color = NULL
   ) +
 
-  # Professional colors
-  scale_color_manual(values = c(
-    "Train MSE" = "#1f77b4",
-    "Validation MSE" = "#ff7f0e"
-  )) +
-
-  # Better ticks
-    scale_x_continuous(
-  breaks = seq(
-    0,
-    max(loss_df$Epoch),
-    by = 50
-  ),
-  expand = c(0.01,0)
-)+
-  scale_y_continuous(
-    breaks = seq(0,0.30,0.05),
-    expand = c(0,0)
+  scale_color_manual(
+    values = c(
+      "Training" = "#1f77b4",
+      "Validation" = "#ff7f0e"
+    )
   ) +
 
-  # Cleaner theme
-  theme_classic(base_size = 18) +
+  scale_x_continuous(
+  breaks = c(100, 200, 250, 400, 600)
+  ) +
+
+  theme_bw(base_size = 18) +
 
   theme(
-
-    # ----- BIGGER TEXT -----
     plot.title = element_text(
-      size = 24,
+      size = 22,
       face = "bold",
-      hjust = 0.5,
-      margin = margin(b = 18)
+      hjust = 0.5
     ),
 
-    axis.title.x = element_text(
-      size = 20,
-      face = "bold",
-      margin = margin(t = 14)
-    ),
-
-    axis.title.y = element_text(
-      size = 20,
-      face = "bold",
-      margin = margin(r = 14)
+    axis.title = element_text(
+      size = 18,
+      face = "bold"
     ),
 
     axis.text = element_text(
-      size = 17,
-      color = "black"
+      size = 14
     ),
 
-    # ----- AXES -----
-    axis.line = element_line(
-      linewidth = 1.2,
-      color = "black"
-    ),
-
-    axis.ticks = element_line(
-      linewidth = 1
-    ),
-
-    axis.ticks.length = unit(0.25, "cm"),
-
-    # ----- GRID -----
-    panel.grid.major = element_line(
-      color = "grey85",
-      linewidth = 0.5,
-      linetype = "dashed"
-    ),
-    panel.grid.minor = element_blank(),
-
-    # ----- LEGEND -----
     legend.position = "top",
-
-    legend.text = element_text(
-      size = 16
-    ),
-
-    legend.key.width = unit(1.4, "cm"),
-
-    legend.background = element_blank(),
-
-    # Margins
-    plot.margin = margin(15,15,15,15)
+    legend.text = element_text(size = 14)
   )
 
 print(p)
 
-# Save high-quality figure
 ggsave(
-  "curva_aprendizaje_square_TFM.png",
+  "C:/Users/belen/OneDrive/Escritorio/TFM ISA/train_val_e700.png",
   plot = p,
   width = 8,
   height = 8,
   dpi = 600,
   bg = "white"
 )
-
